@@ -95,6 +95,11 @@ options:
     required: false
     default: no
     version_added: "2.4"
+  gzip:
+    description:
+    - add Content-Encoding: gzip header on uploaded files
+    required: false
+    default: no
 
 requirements:
   - boto3 >= 1.4.4
@@ -126,6 +131,7 @@ EXAMPLES = '''
     cache_control: "public, max-age=31536000"
     include: "*"
     exclude: "*.txt,.*"
+    gzip: no
 '''
 
 RETURN = '''
@@ -457,6 +463,8 @@ def upload_files(s3, bucket, filelist, params):
             args['ACL'] = params['permission']
         if params.get('cache_control'):
             args['CacheControl'] = params['cache_control']
+        if params.get('gzip'):
+            args['Content-Encoding'] = 'gzip'
         # if this fails exception is caught in main()
         s3.upload_file(entry['fullpath'], bucket, entry['s3_path'], ExtraArgs=args, Callback=None, Config=None)
         ret.append(entry)
@@ -494,6 +502,7 @@ def main():
         exclude=dict(required=False, default=".*"),
         include=dict(required=False, default="*"),
         cache_control=dict(required=False, default=''),
+        gzip=dict(required=False, type='bool', default=False),
         delete=dict(required=False, type='bool', default=False),
         # future options: encoding, metadata, storage_class, retries
     )
