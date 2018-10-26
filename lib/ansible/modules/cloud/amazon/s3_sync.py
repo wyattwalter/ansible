@@ -333,12 +333,14 @@ def gather_files(fileroot, include=None, exclude=None):
     return ret
 
 
-def calculate_s3_path(filelist, key_prefix=''):
+def calculate_s3_path(filelist, gzip, key_prefix=''):
     ret = []
     for fileentry in filelist:
         # don't modify the input dict
         retentry = fileentry.copy()
         retentry['s3_path'] = os.path.join(key_prefix, fileentry['chopped_path'])
+        if gzip and retentry['s3_path'].endswith('.gz'):
+            retentry['s3_path'] = retentry['s3_path'][:-3]
         ret.append(retentry)
     return ret
 
@@ -463,8 +465,8 @@ def upload_files(s3, bucket, filelist, params):
             args['ACL'] = params['permission']
         if params.get('cache_control'):
             args['CacheControl'] = params['cache_control']
-        if params.get('gzip'):
-            args['Content-Encoding'] = 'gzip'
+        if params.get('gzip') and entry['fullpath'].endswith('.gz'):
+            args['ContentEncoding'] = 'gzip'
         # if this fails exception is caught in main()
         s3.upload_file(entry['fullpath'], bucket, entry['s3_path'], ExtraArgs=args, Callback=None, Config=None)
         ret.append(entry)
@@ -530,7 +532,7 @@ def main():
         try:
             result['filelist_initial'] = gather_files(module.params['file_root'], exclude=module.params['exclude'], include=module.params['include'])
             result['filelist_typed'] = determine_mimetypes(result['filelist_initial'], module.params.get('mime_map'))
-            result['filelist_s3'] = calculate_s3_path(result['filelist_typed'], module.params['key_prefix'])
+            result['filelist_s3'] = calculate_s3_path(result['filelist_typed'], module.params['gzip'], module.params['key_prefix'])
             result['filelist_local_etag'] = calculate_local_etag(result['filelist_s3'])
             result['filelist_actionable'] = filter_list(s3, module.params['bucket'], result['filelist_local_etag'], module.params['file_change_strategy'])
             result['uploads'] = upload_files(s3, module.params['bucket'], result['filelist_actionable'], module.params)
